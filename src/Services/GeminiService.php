@@ -8,48 +8,43 @@ use Exception;
 class GeminiService
 {
     protected string $apiKey;
-    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1';
+    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
     public function __construct()
     {
         $this->apiKey = config('dev-guard.api_key') ?? '';
     }
 
-    /**
-     * @throws Exception
-     */
     public function generateTest(string $code, string $framework): string
     {
-        $model = config('dev-guard.model', 'gemini-1.5-flash');
+        $model = config('dev-guard.model', 'gemini-1.5-flash-latest');
 
         $modelName = str_starts_with($model, 'models/') ? $model : "models/{$model}";
 
         $prompt = $this->buildPrompt($code, $framework);
-
         $url = "{$this->baseUrl}/{$modelName}:generateContent?key={$this->apiKey}";
 
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
         ])->post($url, [
             'contents' => [
-                [
-                    'parts' => [
-                        ['text' => $prompt]
-                    ]
-                ]
+                ['parts' => [['text' => $prompt]]]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.2,
             ]
         ]);
 
         if ($response->failed()) {
             $errorData = $response->json();
-            $errorMessage = $errorData['error']['message'] ?? $response->body();
+            $errorMessage = $errorData['error']['message'] ?? "Unknown API Error";
             throw new Exception("Gemini AI Error: " . $errorMessage);
         }
 
         $responseText = $response->json('candidates.0.content.parts.0.text');
 
         if (!$responseText) {
-            throw new Exception("Failed to retrieve text from Gemini response.");
+            throw new Exception("Invalid response structure from Gemini API.");
         }
 
         return $this->extractCode($responseText);
@@ -57,14 +52,12 @@ class GeminiService
 
     protected function buildPrompt(string $code, string $framework): string
     {
-        return "You are a Senior Full-stack Developer. Generate a technical {$framework} test for this Laravel Action class.
-                Requirements:
-                - Mock all external dependencies and models.
-                - Use PSR-12 coding standards and SOLID principles.
-                - Ensure high performance and coverage.
-                - RETURN ONLY THE PHP CODE. NO EXPLANATIONS. NO MARKDOWN BLOCKS.
+        return "As a Senior Full-stack Developer, generate a professional {$framework} test for the following Laravel Action.
+                - Mock all models and external services.
+                - Ensure strict SOLID compliance.
+                - Only output raw PHP code. Do not include markdown formatting or explanations.
                 
-                Action Class:
+                Code:
                 {$code}";
     }
 
