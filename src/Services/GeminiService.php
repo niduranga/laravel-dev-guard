@@ -8,8 +8,8 @@ use Exception;
 class GeminiService
 {
     protected string $apiKey;
-    // 2026 දී වඩාත් සුදුසු stable endpoint එක
-    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+    // Stable Version 1 එක පාවිච්චි කරමු
+    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1';
 
     public function __construct()
     {
@@ -18,38 +18,52 @@ class GeminiService
 
     public function generateTest(string $code, string $framework): string
     {
-        $model = 'gemini-1.5-flash-latest';
+        $model = config('dev-guard.model', 'gemini-1.5-flash');
 
-        $formattedModel = str_starts_with($model, 'models/') ? $model : "models/{$model}";
+        try {
+            return $this->makeRequest($model, $code, $framework);
+        } catch (Exception $e) {
+            if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'not found')) {
+                return $this->makeRequest('gemini-1.5-flash-latest', $code, $framework);
+            }
+            throw $e;
+        }
+    }
 
-        $url = "{$this->baseUrl}/{$formattedModel}:generateContent?key={$this->apiKey}";
+    protected function makeRequest(string $model, string $code, string $framework): string
+    {
+        $modelName = str_starts_with($model, 'models/') ? $model : "models/{$model}";
+        $url = "{$this->baseUrl}/{$modelName}:generateContent?key={$this->apiKey}";
 
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post($url, [
-            'contents' => [
-                ['parts' => [['text' => $this->buildPrompt($code, $framework)]]]
-            ]
-        ]);
+        $response = Http::withHeaders(['Content-Type' => 'application/json'])
+            ->post($url, [
+                'contents' => [
+                    ['parts' => [['text' => $this->buildPrompt($code, $framework)]]]
+                ]
+            ]);
 
         if ($response->failed()) {
-            $error = $response->json();
-
-            if ($response->status() === 404) {
-                throw new Exception("Model Not Found. Try using 'gemini-1.5-flash-latest' or 'gemini-pro' in your config. API Response: " . ($error['error']['message'] ?? 'Unknown Error'));
-            }
-
-            throw new Exception("Gemini AI Error: " . ($error['error']['message'] ?? $response->body()));
+            throw new Exception("Status: " . $response->status() . " | " . $response->body());
         }
 
         $responseText = $response->json('candidates.0.content.parts.0.text');
+
+        if (!$responseText) {
+            throw new Exception("Gemini returned an empty response.");
+        }
 
         return $this->extractCode($responseText);
     }
 
     protected function buildPrompt(string $code, string $framework): string
     {
-        return "Write a professional {$framework} test for this Laravel Action: \n\n {$code} \n\n Respond ONLY with PHP code.";
+        return "As an expert Laravel Developer, write a professional {$framework} test for the following Action class.
+                - Mock all dependencies.
+                - Follow SOLID principles.
+                - Return ONLY the raw PHP code without markdown wrappers.
+                
+                Code:
+                {$code}";
     }
 
     protected function extractCode(string $response): string
