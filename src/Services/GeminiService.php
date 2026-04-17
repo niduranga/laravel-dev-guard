@@ -17,28 +17,24 @@ class GeminiService
 
     public function generateTest(string $code, string $framework): string
     {
-        $model = config('dev-guard.model', 'gemini-1.5-flash');
-
-        try {
-            return $this->makeRequest($model, $code, $framework);
-        } catch (Exception $e) {
-            if (str_contains($e->getMessage(), '404')) {
-                return $this->makeRequest('gemini-1.5-flash-latest', $code, $framework);
-            }
-            throw $e;
-        }
+        $model = config('dev-guard.model', 'gemini-2.5-flash');
+        return $this->makeRequest($model, $code, $framework);
     }
 
     protected function makeRequest(string $model, string $code, string $framework): string
     {
-        $modelName = str_starts_with($model, 'models/') ? $model : "models/{$model}";
-
+        $modelName = "models/{$model}";
         $url = "{$this->baseUrl}/{$modelName}:generateContent?key={$this->apiKey}";
 
         $response = Http::withHeaders(['Content-Type' => 'application/json'])
             ->post($url, [
                 'contents' => [
                     ['parts' => [['text' => $this->buildPrompt($code, $framework)]]]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.7,
+                    'topK' => 40,
+                    'topP' => 0.95,
                 ]
             ]);
 
@@ -49,7 +45,7 @@ class GeminiService
         $responseText = $response->json('candidates.0.content.parts.0.text');
 
         if (!$responseText) {
-            throw new Exception("Gemini returned an empty response. Response Data: " . json_encode($response->json()));
+            throw new Exception("Gemini returned an empty response. Check if your API Key has safety filters enabled.");
         }
 
         return $this->extractCode($responseText);
@@ -57,12 +53,11 @@ class GeminiService
 
     protected function buildPrompt(string $code, string $framework): string
     {
-        return "You are a Senior Full-stack Developer. Write a professional {$framework} test for the following Laravel Action class. 
-                - Use proper Mocking.
-                - Follow SOLID and TDD principles.
-                - Provide ONLY the executable PHP code without any markdown formatting or comments.
+        return "You are a Senior Full-stack Developer. Write a high-performance PHPUnit test for this Laravel Action. 
+                Use Mockery, follow SOLID principles, and Clean Architecture. 
+                Return ONLY the raw PHP code.
                 
-                Action Class Code:
+                Code:
                 {$code}";
     }
 
