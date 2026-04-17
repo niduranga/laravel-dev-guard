@@ -8,7 +8,7 @@ use Exception;
 class GeminiService
 {
     protected string $apiKey;
-    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1';
 
     public function __construct()
     {
@@ -22,11 +22,11 @@ class GeminiService
     {
         $model = config('dev-guard.model', 'gemini-1.5-flash');
 
-        $modelPath = str_contains($model, 'models/') ? $model : "models/{$model}";
+        $modelName = str_starts_with($model, 'models/') ? $model : "models/{$model}";
 
         $prompt = $this->buildPrompt($code, $framework);
 
-        $url = "{$this->baseUrl}/{$modelPath}:generateContent?key={$this->apiKey}";
+        $url = "{$this->baseUrl}/{$modelName}:generateContent?key={$this->apiKey}";
 
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
@@ -41,13 +41,15 @@ class GeminiService
         ]);
 
         if ($response->failed()) {
-            throw new Exception("AI Request Failed: " . $response->body());
+            $errorData = $response->json();
+            $errorMessage = $errorData['error']['message'] ?? $response->body();
+            throw new Exception("Gemini AI Error: " . $errorMessage);
         }
 
         $responseText = $response->json('candidates.0.content.parts.0.text');
 
         if (!$responseText) {
-            throw new Exception("Empty response from Gemini. Check your API Key or Prompt.");
+            throw new Exception("Failed to retrieve text from Gemini response.");
         }
 
         return $this->extractCode($responseText);
@@ -55,21 +57,20 @@ class GeminiService
 
     protected function buildPrompt(string $code, string $framework): string
     {
-        return "As an expert Laravel Developer, generate a high-performance {$framework} test for the following Action class. 
+        return "You are a Senior Full-stack Developer. Generate a technical {$framework} test for this Laravel Action class.
                 Requirements:
-                - Use proper Mocking for external services and models.
-                - Follow PSR-12 coding standards.
-                - Ensure University-level logic rigor and SOLID principles.
-                - Provide only the executable PHP code.
-                - Do NOT include markdown blocks like ```php or ```.
+                - Mock all external dependencies and models.
+                - Use PSR-12 coding standards and SOLID principles.
+                - Ensure high performance and coverage.
+                - RETURN ONLY THE PHP CODE. NO EXPLANATIONS. NO MARKDOWN BLOCKS.
                 
-                Action Class Code:
+                Action Class:
                 {$code}";
     }
 
     protected function extractCode(string $response): string
     {
-        $code = str_replace(['```php', '```javascript', '```'], '', $response);
-        return trim($code);
+        $code = str_replace(['```php', '```', '<?php'], '', $response);
+        return "<?php\n\n" . trim($code);
     }
 }
