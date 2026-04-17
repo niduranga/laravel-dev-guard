@@ -1,0 +1,43 @@
+{
+  "name": "niduranga/laravel-dev-guard",
+  "description": "AI-powered TDD test generator for Laravel Actions",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Niduranga\\DevGuard\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Niduranga\\DevGuard\\Tests\\": "tests/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Niduranga",
+      "email": "nidurangajayarathna@gmail.com"
+    }
+  ],
+  "require": {
+    "php": "^8.2|^8.3|^8.4|^8.5",
+    "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^11.1",
+    "pestphp/pest": "^4.6",
+    "pestphp/pest-plugin-laravel": "^4.1"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Niduranga\\DevGuard\\DevGuardServiceProvider"
+      ]
+    }
+  }
+}
