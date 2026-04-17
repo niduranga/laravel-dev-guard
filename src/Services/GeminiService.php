@@ -18,7 +18,7 @@ class GeminiService
 
     public function generateTest(string $code, string $framework): string
     {
-        $model = config('dev-guard.model', 'gemini-1.5-flash');
+        $model = 'gemini-1.5-flash-latest';
 
         $formattedModel = str_starts_with($model, 'models/') ? $model : "models/{$model}";
 
