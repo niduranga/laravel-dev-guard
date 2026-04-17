@@ -8,8 +8,7 @@ use Exception;
 class GeminiService
 {
     protected string $apiKey;
-    // Stable Version 1 එක පාවිච්චි කරමු
-    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1';
+    protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
     public function __construct()
     {
@@ -23,7 +22,7 @@ class GeminiService
         try {
             return $this->makeRequest($model, $code, $framework);
         } catch (Exception $e) {
-            if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'not found')) {
+            if (str_contains($e->getMessage(), '404')) {
                 return $this->makeRequest('gemini-1.5-flash-latest', $code, $framework);
             }
             throw $e;
@@ -33,6 +32,7 @@ class GeminiService
     protected function makeRequest(string $model, string $code, string $framework): string
     {
         $modelName = str_starts_with($model, 'models/') ? $model : "models/{$model}";
+
         $url = "{$this->baseUrl}/{$modelName}:generateContent?key={$this->apiKey}";
 
         $response = Http::withHeaders(['Content-Type' => 'application/json'])
@@ -49,7 +49,7 @@ class GeminiService
         $responseText = $response->json('candidates.0.content.parts.0.text');
 
         if (!$responseText) {
-            throw new Exception("Gemini returned an empty response.");
+            throw new Exception("Gemini returned an empty response. Response Data: " . json_encode($response->json()));
         }
 
         return $this->extractCode($responseText);
@@ -57,12 +57,12 @@ class GeminiService
 
     protected function buildPrompt(string $code, string $framework): string
     {
-        return "As an expert Laravel Developer, write a professional {$framework} test for the following Action class.
-                - Mock all dependencies.
-                - Follow SOLID principles.
-                - Return ONLY the raw PHP code without markdown wrappers.
+        return "You are a Senior Full-stack Developer. Write a professional {$framework} test for the following Laravel Action class. 
+                - Use proper Mocking.
+                - Follow SOLID and TDD principles.
+                - Provide ONLY the executable PHP code without any markdown formatting or comments.
                 
-                Code:
+                Action Class Code:
                 {$code}";
     }
 
