@@ -9,7 +9,7 @@ use Niduranga\DevGuard\Services\GeminiService;
 class GenerateTestCommand extends Command
 {
     protected $signature = 'guard:test {class}';
-    protected $description = 'Generate a high-performance test for a given Action class using Gemini 2.5';
+    protected $description = 'Generate a high-performance test for a given Action class using Gemini';
 
     public function handle(GeminiService $gemini)
     {
@@ -28,17 +28,17 @@ class GenerateTestCommand extends Command
         $framework = $this->detectTestFramework();
 
         try {
-            $this->warn("🤖 Consulting Gemini 2.5 (this may take a moment)...");
+            $this->warn("🤖 Consulting Gemini (this may take a moment)...");
 
             $testCode = $gemini->generateTest($content, $framework);
 
             $testClassName = class_basename($className) . 'Test';
-            $testPath = base_path("tests/Feature/{$testClassName}.php");
+            $testPath = base_path("tests/Unit/{$testClassName}.php");
 
-            File::ensureDirectoryExists(base_path('tests/Feature'));
+            File::ensureDirectoryExists(base_path('tests/Unit'));
             File::put($testPath, $testCode);
 
-            $this->info("✅ Success! Test generated at: tests/Feature/{$testClassName}.php");
+            $this->info("✅ Success! Test generated at: tests/Unit/{$testClassName}.php");
 
         } catch (\Exception $e) {
             $this->error("❌ Error: " . $e->getMessage());
