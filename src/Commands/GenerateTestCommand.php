@@ -9,36 +9,41 @@ use Niduranga\DevGuard\Services\GeminiService;
 class GenerateTestCommand extends Command
 {
     protected $signature = 'guard:test {class}';
-    protected $description = 'Generate a high-performance test for a given Action class using Gemini';
+    protected $description = 'Generate a mirrored unit test for any class using Gemini';
 
     public function handle(GeminiService $gemini)
     {
         $className = $this->argument('class');
 
-        // Path logic for Laravel Actions
-        $path = app_path(str_replace(['App\\', '\\'], ['', '/'], $className) . '.php');
+        $relativeClassPath = str_replace(['App\\', '\\'], ['', '/'], $className);
+        $sourcePath = app_path($relativeClassPath . '.php');
 
-        if (!File::exists($path)) {
-            $this->error("❌ Action class not found at: {$path}");
+        if (!File::exists($sourcePath)) {
+            $this->error("❌ Class not found at: {$sourcePath}");
             return;
         }
 
         $this->info("🚀 Analyzing Logic: {$className}...");
-        $content = File::get($path);
+        $content = File::get($sourcePath);
         $framework = $this->detectTestFramework();
 
         try {
             $this->warn("🤖 Consulting Gemini (this may take a moment)...");
-
             $testCode = $gemini->generateTest($content, $framework);
 
-            $testClassName = class_basename($className) . 'Test';
-            $testPath = base_path("tests/Unit/{$testClassName}.php");
+            $testRelativePath = str_replace(['App\\', '\\'], ['', '/'], $className) . 'Test';
 
-            File::ensureDirectoryExists(base_path('tests/Unit'));
-            File::put($testPath, $testCode);
+            $testFullPath = base_path("tests/Unit/{$testRelativePath}.php");
+            $testDirectory = dirname($testFullPath);
 
-            $this->info("✅ Success! Test generated at: tests/Unit/{$testClassName}.php");
+            if (!File::isDirectory($testDirectory)) {
+                File::makeDirectory($testDirectory, 0755, true);
+                $this->comment("📁 Created directory: {$testDirectory}");
+            }
+
+            File::put($testFullPath, $testCode);
+
+            $this->info("✅ Success! Test generated at: tests/Unit/{$testRelativePath}.php");
 
         } catch (\Exception $e) {
             $this->error("❌ Error: " . $e->getMessage());

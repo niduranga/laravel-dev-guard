@@ -39,6 +39,9 @@ php artisan devguard:install
 
 ```env
 GEMINI_API_KEY=your_actual_api_key_here
+
+# Optional: Defaults to gemini-2.5-flash for high performance you can change to other models
+GEMINI_MODEL=gemini-3-flash-preview
 ```
 
 ## 🛠️ Usage
